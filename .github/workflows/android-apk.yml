@@ -12,7 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CHANNEL: prod
+  # master needs the draft core: the core of the last release (core.version) lacks its Kotlin API
+  CHANNEL: dev
   FLUTTER_VERSION: '3.38.5'
 
 jobs:
