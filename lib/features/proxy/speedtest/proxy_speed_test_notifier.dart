@@ -7,8 +7,8 @@ import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-/// Result of one proxy: download speed in Mbit/s, or null when the test failed.
-typedef SpeedResult = double?;
+/// Result of one proxy: download speed in Mbit/s, or the reason the test failed.
+typedef SpeedResult = ({double? mbps, String? error});
 
 class ProxySpeedTestState {
   const ProxySpeedTestState({this.running = false, this.current, this.done = 0, this.total = 0, this.results = const {}});
@@ -77,9 +77,20 @@ class ProxySpeedTestNotifier extends Notifier<ProxySpeedTestState> with AppLogge
         if (_stop) break;
         state = state.copyWith(current: () => tag);
         final selected = await repository.selectProxy(group.tag, tag).run();
-        final SpeedResult speed = selected.isRight() ? await _measure() : null;
+        var speed = selected.fold<SpeedResult>(
+          (failure) => (mbps: null, error: "select: $failure"),
+          (_) => (mbps: null, error: null),
+        );
+        if (speed.error == null) {
+          // A new outbound opens its connection on the first request; one retry covers a slow start.
+          for (var attempt = 0; attempt < 2 && !_stop; attempt++) {
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+            speed = await _measure();
+            if (speed.mbps != null) break;
+          }
+        }
         if (_stop) break;
-        loggy.debug("speed of [$tag]: $speed Mbit/s");
+        loggy.debug("speed of [$tag]: $speed");
         state = state.copyWith(done: state.done + 1, results: {...state.results, tag: speed});
       }
     } finally {
@@ -102,8 +113,7 @@ class ProxySpeedTestNotifier extends Notifier<ProxySpeedTestState> with AppLogge
       final request = await client.getUrl(Uri.parse(_url)).timeout(_connectTimeout);
       final response = await request.close().timeout(_connectTimeout);
       if (response.statusCode != HttpStatus.ok) {
-        loggy.warning("speed test answered ${response.statusCode}");
-        return null;
+        return (mbps: null, error: "HTTP ${response.statusCode}");
       }
       // The time starts at the first byte, so the delay of the proxy does not lower the speed.
       final watch = Stopwatch();
@@ -114,11 +124,11 @@ class ProxySpeedTestNotifier extends Notifier<ProxySpeedTestState> with AppLogge
         if (watch.elapsed >= _measureTime || _stop) break;
       }
       final seconds = watch.elapsedMicroseconds / Duration.microsecondsPerSecond;
-      if (bytes == 0 || seconds == 0) return null;
-      return bytes * 8 / seconds / 1000000;
+      if (bytes == 0 || seconds == 0) return (mbps: null, error: "no data");
+      return (mbps: bytes * 8 / seconds / 1000000, error: null);
     } catch (e) {
       loggy.debug("speed test failed", e);
-      return null;
+      return (mbps: null, error: e.toString());
     } finally {
       _client = null;
       client.close(force: true);

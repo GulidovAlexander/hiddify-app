@@ -59,13 +59,16 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
 
           if (speedTest.current == proxy.tag)
             const SizedBox.square(dimension: 12, child: CircularProgressIndicator(strokeWidth: 2))
-          else if (speedTest.results.containsKey(proxy.tag))
-            Text(
-              switch (speedTest.results[proxy.tag]) {
-                final speed? => "${speed.toStringAsFixed(speed < 10 ? 1 : 0)} Mb/s",
-                null => "× Mb/s",
-              },
-              style: theme.textTheme.bodySmall?.copyWith(color: speedColor(context, speedTest.results[proxy.tag])),
+          else if (speedTest.results[proxy.tag] case (:final mbps, :final error))
+            Tooltip(
+              // tap on the result shows why the test failed
+              message: error ?? "",
+              triggerMode: TooltipTriggerMode.tap,
+              showDuration: const Duration(seconds: 10),
+              child: Text(
+                mbps != null ? "${mbps.toStringAsFixed(mbps < 10 ? 1 : 0)} Mb/s" : "× Mb/s",
+                style: theme.textTheme.bodySmall?.copyWith(color: speedColor(context, mbps)),
+              ),
             ),
           if (proxy.download > 0) Text("⬩", style: Theme.of(context).textTheme.bodySmall),
         ],
