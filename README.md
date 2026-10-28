@@ -1,3 +1,8 @@
+> **Fork of [hiddify/hiddify-app](https://github.com/hiddify/hiddify-app)** under the [Hiddify Extended GPL v3](LICENSE.md).
+> Changes in this fork:
+> - Proxies page: a button that tests the download speed of every proxy, one after another, and shows Mbit/s next to the delay (`lib/features/proxy/speedtest/`).
+> - `.github/workflows/android-apk.yml`: builds the Android APK of the `speed-test` branch and publishes it as a GitHub release.
+
 <div dir="ltr" align=center>
     
 [**![Lang_farsi](https://user-images.githubusercontent.com/125398461/234186932-52f1fa82-52c6-417f-8b37-08fe9250a55f.png) فارسی**](README_fa.md) / [**Русский 🇷🇺**](README_ru.md) / [**简体中文 🇨🇳**](README_cn.md) / [**日本語 🇯🇵**](README_ja.md) / [**Portugês-BR 🇧🇷**](README_br.md)

@@ -127,6 +127,10 @@
         "country": "Country",
         "organization": "Organization"
       },
+      "speedTest": {
+        "start": "Test speed of all proxies",
+        "stop": "Stop speed test"
+      },
       "delay": {
         "result": "Delay: ${delay}ms",
         "timeout": "Delay test timeout",

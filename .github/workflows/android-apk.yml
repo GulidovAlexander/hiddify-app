@@ -1,0 +1,80 @@
+name: Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - speed-test
+    paths-ignore:
+      - '**.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CHANNEL: prod
+  FLUTTER_VERSION: '3.38.5'
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2.21.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Prepare
+        run: make android-apk-prepare
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib/features/proxy
+
+      - name: Signing key
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+        run: |
+          echo "$ANDROID_SIGNING_KEY" | base64 --decode > android/key.jks
+          {
+            echo "storeFile=$(pwd)/android/key.jks"
+            echo "storePassword=$ANDROID_SIGNING_STORE_PASSWORD"
+            echo "keyPassword=$ANDROID_SIGNING_KEY_PASSWORD"
+            echo "keyAlias=$ANDROID_SIGNING_KEY_ALIAS"
+          } > android/key.properties
+
+      - name: Build
+        run: flutter build apk --release --split-per-abi --target lib/main_prod.dart --target-platform android-arm,android-arm64,android-x64
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="speedtest-$(date -u +%Y%m%d-%H%M)-${GITHUB_SHA::7}"
+          gh release create "$tag" build/app/outputs/flutter-apk/*.apk \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "$tag" --notes "Hiddify with proxy speed test. Commit $GITHUB_SHA."

@@ -6,6 +6,7 @@ import 'package:gap/gap.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/proxy/overview/proxies_overview_notifier.dart';
+import 'package:hiddify/features/proxy/speedtest/proxy_speed_test_notifier.dart';
 import 'package:hiddify/features/proxy/widget/proxy_tile.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -19,6 +20,7 @@ class ProxiesOverviewPage extends HookConsumerWidget with PresLogger {
 
     final proxies = ref.watch(proxiesOverviewNotifierProvider);
     final sortBy = ref.watch(proxiesSortNotifierProvider);
+    final speedTest = ref.watch(proxySpeedTestProvider);
 
     // final selectActiveProxyMutation = useMutation(
     //   initialOnFailure: (error) => CustomToast.error(t.presentShortError(error)).show(context),
@@ -28,6 +30,22 @@ class ProxiesOverviewPage extends HookConsumerWidget with PresLogger {
       appBar: AppBar(
         title: Text(t.pages.proxies.title),
         actions: [
+          if (speedTest.running) ...[
+            Center(child: Text("${speedTest.done}/${speedTest.total}")),
+            IconButton(
+              onPressed: ref.read(proxySpeedTestProvider.notifier).stop,
+              icon: const Icon(FluentIcons.stop_24_regular),
+              tooltip: t.pages.proxies.speedTest.stop,
+            ),
+          ] else
+            IconButton(
+              onPressed: switch (proxies) {
+                AsyncData(value: final group?) => () => ref.read(proxySpeedTestProvider.notifier).run(group),
+                _ => null,
+              },
+              icon: const Icon(FluentIcons.top_speed_24_regular),
+              tooltip: t.pages.proxies.speedTest.start,
+            ),
           PopupMenuButton<ProxiesSort>(
             initialValue: sortBy,
             onSelected: ref.read(proxiesSortNotifierProvider.notifier).update,

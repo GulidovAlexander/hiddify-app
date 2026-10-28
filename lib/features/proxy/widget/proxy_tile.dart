@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hiddify/core/model/constants.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/features/proxy/active/ip_widget.dart';
+import 'package:hiddify/features/proxy/speedtest/proxy_speed_test_notifier.dart';
 import 'package:hiddify/gen/fonts.gen.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
@@ -18,6 +19,7 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final speedTest = ref.watch(proxySpeedTestProvider);
 
     return ListTile(
       // shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -47,6 +49,7 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
         overflow: TextOverflow.ellipsis,
       ),
       trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (proxy.urlTestDelay != 0)
             Text(
@@ -54,6 +57,16 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
               style: TextStyle(color: delayColor(context, proxy.urlTestDelay)),
             ),
 
+          if (speedTest.current == proxy.tag)
+            const SizedBox.square(dimension: 12, child: CircularProgressIndicator(strokeWidth: 2))
+          else if (speedTest.results.containsKey(proxy.tag))
+            Text(
+              switch (speedTest.results[proxy.tag]) {
+                final speed? => "${speed.toStringAsFixed(speed < 10 ? 1 : 0)} Mb/s",
+                null => "× Mb/s",
+              },
+              style: theme.textTheme.bodySmall?.copyWith(color: speedColor(context, speedTest.results[proxy.tag])),
+            ),
           if (proxy.download > 0) Text("⬩", style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
@@ -64,6 +77,15 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
       onLongPress: () async => await ref.read(dialogNotifierProvider.notifier).showProxyInfo(outboundInfo: proxy),
       horizontalTitleGap: 4,
     );
+  }
+
+  Color speedColor(BuildContext context, double? speed) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return switch (speed) {
+      null => dark ? Colors.redAccent : Colors.red,
+      < 5 => dark ? Colors.orange : Colors.deepOrangeAccent,
+      _ => dark ? Colors.lightGreen : Colors.green,
+    };
   }
 
   Color delayColor(BuildContext context, int delay) {
